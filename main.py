@@ -9,6 +9,7 @@ from src.train_sampler import Train_Sampler
 from src.utils import count_acc, Averager, csv_write, square_euclidean_metric
 from src.utils import loss_fn
 from model import FewShotModel 
+import pdb
 
 from src.test_dataset import CUB as Test_Dataset
 from src.test_sampler import Test_Sampler
@@ -122,7 +123,6 @@ def train(args):
             label_shot, label_query = label[:k], label[k:]
             label_shot = sorted(list(set(label_shot.tolist())))
 
-
             # convert labels into 0-4 values
             label_query = label_query.tolist()
             labels = []
@@ -143,34 +143,35 @@ def train(args):
                 logits : A value to measure accuracy and loss
             """
 
+            pdb.set_trace()
+
             labels_list = labels.tolist()
 
             # Embedding
-            ebd_shot = model(data_shot)
-            ebd_query = model(data_query)
+            print(data_shot.shape, data_query.shape)
+            data = torch.cat([data_shot, data_query], dim=0)
+            #ebd_shot = model(data_shot)
+            #ebd_query = model(data_query)
+            output = model(data)
+            ebd_shot, ebd_query = output[:k], output[k:]
 
             # Prototype
             proto_shots = torch.zeros([len(set(labels_list)), ebd_shot.size(1), 1]).cuda()
-
             for i in range(len(set(labels_list))):  # Get prototypes of each class from shot
                 shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
                 proto_shots[i] = torch.mean(shots, dim=0)
 
-            # Distance metric
-            class_losses = torch.zeros(len(set(labels_list))) # loss for each class
-            predictions = torch.zeros(len(ebd_query)) # loss for each queries
-            for i in range(len(set(labels_list))):  # Get loss for each class
-                # select embedding vectors of i'th class queries
-                idx_start = labels_list.index(i)
-                cnt = labels_list.count(i)
-                query = ebd_query[idx_start:idx_start+cnt]
+            pdb.set_trace()
 
-                class_loss, preds = loss_fn(query, proto_shots, i)
+            ebd_query = ebd_query.squeeze().unsqueeze(1)
+            ebd_shot = ebd_shot.squeeze().expand(ebd_query.size(0),-1,-1)
 
-                class_losses[i] = class_loss
-                predictions[idx_start:idx_start+cnt] = preds
+            distance = -torch.norm(ebd_query-ebd_shot, 'fro', dim=-1).squeeze()
+            distance = -torch.nn.functions.log_softmax(distance, dim = -1)
 
-            #print(class_losses.tolist())
+            predictions = torch.argmax(distance, dim=1)
+
+            loss = distance[:,labels]
             loss = torch.mean(class_losses)
             #loss = torch.nn.CrossEntropyLoss()(predictions, labels)
             logits = predictions
