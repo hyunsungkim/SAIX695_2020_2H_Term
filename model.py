@@ -19,9 +19,13 @@ class FewShotModel(nn.Module):
         # embedding layers
         self.f = nn.Sequential(
             conv_block(x_dim, hid_dim),
+            nn.MaxPool2d(2),
             conv_block(hid_dim, hid_dim),
+            nn.MaxPool2d(2),
             conv_block(hid_dim, hid_dim),
+            nn.MaxPool2d(2),
             conv_block(hid_dim, z_dim),
+            nn.MaxPool2d(2)
         )
             
     def forward(self, x):
