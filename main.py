@@ -8,7 +8,7 @@ from src.dataset import CUB as Dataset
 from src.sampler import Sampler
 from src.train_sampler import Train_Sampler
 from src.utils import count_acc, Averager, csv_write, square_euclidean_metric
-from src.utils import loss_fn
+from src.utils import step
 from model import FewShotModel 
 import pdb
 
@@ -144,34 +144,7 @@ def train(args):
                 logits : A value to measure accuracy and loss
             """
 
-            labels_list = labels.tolist()
-
-            # Embedding
-            data = torch.cat([data_shot, data_query], dim=0)
-            output = model(data)
-            ebd_shot, ebd_query = output[:k], output[k:]
-            #print(output.shape)
-
-            # Prototype
-            proto_shots = torch.zeros([len(set(labels_list)), ebd_shot.size(1), 1]).cuda()
-            for i in range(len(set(labels_list))):  # Get prototypes of each class from shot
-                shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
-                proto_shots[i] = torch.mean(shots, dim=0)
-
-            # Distance
-            ebd_query = ebd_query.squeeze().unsqueeze(1)
-            proto_shots = proto_shots.squeeze().expand(ebd_query.size(0),-1,-1)
-
-            distance = torch.norm(ebd_query-proto_shots, 'fro', dim=-1).squeeze()
-            #distance = square_euclidean_metric(ebd_query, proto_shots)
-            distance = -F.log_softmax(-distance, dim=-1)
-
-            # Loss and prediction
-            predictions = torch.argmax(distance, dim=1)
-
-            loss = distance[:,labels]
-            loss = torch.mean(loss)
-            logits = predictions
+            loss, logits = step(model, data_shot, data_query, labels, args)
 
             """ TODO 2 END """
 
@@ -230,36 +203,7 @@ def train(args):
                             logits : A value to measure accuracy and loss
                         """
                         
-                        labels_list = labels.tolist()
-
-                        # Embedding
-                        ebd_shot = model(data_shot)
-                        ebd_query = model(data_query)
-
-                        # Prototype
-                        proto_shots = torch.zeros([len(set(labels_list)), ebd_shot.size(1), 1]).cuda()
-
-                        for i in range(len(set(labels_list))):  # Get prototypes of each class from shot
-                            shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
-                            proto_shots[i] = torch.mean(shots, dim=0)
-
-                        # Distance metric
-                        class_losses = torch.zeros(len(set(labels_list))) # loss for each class
-                        predictions = [] # loss for each queries
-                        for i in range(len(set(labels_list))):  # Get loss for each class
-                            # select embedding vectors of i'th class queries
-                            idx_start = labels_list.index(i)
-                            cnt = labels_list.count(i)
-                            query = ebd_query[idx_start:idx_start+cnt]
-                            # print(f"DEBUG query.shape\t{query.shape}\t{labels_list}")
-                            # get loss for this class
-                            class_loss, preds = loss_fn(query, proto_shots, i)
-            #                print(f"DEBUG class_loss\t{class_loss.shape}\t{class_losses.shape}")
-                            class_losses[i] = class_loss
-                            predictions.extend(preds)
-
-                        loss = torch.mean(class_losses)
-                        logits = torch.tensor(predictions)
+                        loss, logits = step(model, data_shot, data_query, labels, args)
 
                         """ TODO 2 END """
 
