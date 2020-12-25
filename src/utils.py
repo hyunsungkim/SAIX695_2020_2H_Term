@@ -5,23 +5,19 @@ import csv
 
 
 def loss_fn(queries, proto_shots, label):
-    losses = torch.zeros(queries.size(0)).cuda()
-    predictions = []
-    for i, query in enumerate(queries):
-        # For each query, get distance to all classes
-        distances = torch.norm(query-proto_shots, 'fro', dim=1).squeeze()
-        
-        # Get softmax loss for each query
-        loss = torch.nn.functional.softmax(distances, dim=0)
-        losses[i] = loss[label]
 
-        # Get prediction from softmax value
-        pred = torch.argmax(loss)
-        predictions.append(pred)
+    queries = queries.squeeze().unsqueeze(1)
+    proto_shots = proto_shots.squeeze().expand(queries.size(0),-1,-1)
 
-    # Aggregate losses of all queries
+    distance = queries-proto_shots
+    distance = torch.norm(distance, 'fro', dim=-1).squeeze()
+
+    loss = torch.nn.functional.softmax(distance, dim=-1)
+    predictions = torch.argmax(loss, dim=1)
+
+    losses = loss[:,label]
     losses = -1*torch.log(torch.mean(losses))
-    #losses = torch.mean(losses)
+
     return losses, predictions
 
 
