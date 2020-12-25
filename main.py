@@ -7,7 +7,7 @@ from src.dataset import CUB as Dataset
 from src.sampler import Sampler
 from src.train_sampler import Train_Sampler
 from src.utils import count_acc, Averager, csv_write, square_euclidean_metric
-from src.utils import loss_fn, get_prototype, distance_metric
+from src.utils import loss_fn, distance_metric
 from model import FewShotModel 
 
 from src.test_dataset import CUB as Test_Dataset
@@ -151,16 +151,16 @@ def train(args):
             #print(ebd_shot.shape)
 
             # Prototype
-            proto_shots = []
-            #print(f"DEBUG{set(labels.tolist())}, {len(set(labels.tolist()))}")
+            proto_shots = torch.zeros([len(set(labels_list)), ebd_shot.size(1), 1]).cuda()
+
             for i in range(len(set(labels_list))):  # Get prototypes of each class from shot
                 shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
-                proto_shots.append(torch.mean(shots, dim=0))
+                proto_shots[i] = torch.mean(shots, dim=0)
                 # print(f"DEBUG{i}")
                 # print(label[:k].tolist()[i*args.kshot:(i+1)*args.kshot])
                 # print(shots.shape)
                 # print(proto_shots[-1].shape)
-
+            #proto_shots = proto_shots.cuda()
             # Distance metric
             class_losses = torch.zeros(len(set(labels_list))) # loss for each class
             predictions = [] # loss for each queries

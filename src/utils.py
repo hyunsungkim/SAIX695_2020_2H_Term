@@ -3,28 +3,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 import csv
 
-def get_prototype(ebd, label):
-    pass
-
-def distance_metric(x, targets):
-    distances = torch.zeros(len(targets))
-    for i, target in enumerate(targets):
-        #distance = square_euclidean_metric(x, target)
-        distances[i] = torch.norm(x-target, 'fro')
-    return distances
-
 
 def loss_fn(queries, proto_shots, label):
-    losses = torch.zeros(queries.size(0))
+    losses = torch.zeros(queries.size(0)).cuda()
     predictions = []
     for i, query in enumerate(queries):
         # For each query, get distance to all classes
-        distances = distance_metric(query, proto_shots)
+        distances = torch.norm(query-proto_shots, 'fro', dim=1).squeeze()
         
-        #print("DEBUG distance.shape\t", distances.shape)
         # Get softmax loss for each query
         loss = torch.nn.functional.softmax(distances, dim=0)
-        #print("DEBUG loss.shape\t", loss.shape)
         losses[i] = loss[label]
 
         # Get prediction from softmax value
@@ -35,7 +23,7 @@ def loss_fn(queries, proto_shots, label):
     losses = -1*torch.log(torch.mean(losses))
     #losses = torch.mean(losses)
     return losses, predictions
-    
+
 
 def square_euclidean_metric(a, b):
     """ Measure the euclidean distance (optional)
