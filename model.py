@@ -25,24 +25,5 @@ class FewShotModel(nn.Module):
         )
             
     def forward(self, x):
-        shot, query= x  # (nway*kshot, 3, h, w)
-        # embeddings
-        e_shot = self.f(shot)
-        e_query = self.f(query)
-
-        # prototype 
-        
-
-        # metric
-
-
-
-        # distribution
-        pred
-
-        return pred
-
-def classifier(x):
-    
-    pred = torch.argmax(embedding_vector)
-    return pred
+        embedding_vector = self.f(x).view([x.shape[0],-1,1])
+        return embedding_vector

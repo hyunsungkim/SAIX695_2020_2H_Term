@@ -7,14 +7,14 @@ from src.dataset import CUB as Dataset
 from src.sampler import Sampler
 from src.train_sampler import Train_Sampler
 from src.utils import count_acc, Averager, csv_write, square_euclidean_metric
-from src.utils import loss_fn
-from model import FewShotModel, Classifier
+from src.utils import loss_fn, get_prototype, distance_metric
+from model import FewShotModel 
 
 from src.test_dataset import CUB as Test_Dataset
 from src.test_sampler import Test_Sampler
 " User input value "
 TOTAL = 10000  # total step of training
-PRINT_FREQ = 50  # frequency of print loss and accuracy at training step
+PRINT_FREQ = 10  # frequency of print loss and accuracy at training step
 VAL_FREQ = 100  # frequency of model eval on validation dataset
 SAVE_FREQ = 100  # frequency of saving model
 TEST_SIZE = 200  # fixed
@@ -29,7 +29,7 @@ def Test_phase(model, args, k):
 
     dataset = Test_Dataset(args.dpath)
     test_sampler = Test_Sampler(dataset._labels, n_way=args.nway, k_shot=args.kshot, query=args.query)
-    test_loader = DataLoader(dataset=dataset, batch_sampler=test_sampler, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(dataset=dataset, batch_sampler=test_sampler, num_workers=8, pin_memory=True)
 
     print('Test start!')
     for i in range(TEST_SIZE):
@@ -69,20 +69,18 @@ def train(args):
     # Train data loading
     dataset = Dataset(args.dpath, state='train')
     train_sampler = Train_Sampler(dataset._labels, n_way=args.nway, k_shot=args.kshot, query=args.query)
-    data_loader = DataLoader(dataset=dataset, batch_sampler=train_sampler, num_workers=4, pin_memory=True)
+    data_loader = DataLoader(dataset=dataset, batch_sampler=train_sampler, num_workers=8, pin_memory=True)
 
     # Validation data loading
     val_dataset = Dataset(args.dpath, state='val')
     val_sampler = Sampler(val_dataset._labels, n_way=args.nway, k_shot=args.kshot, query=args.query)
-    val_data_loader = DataLoader(dataset=val_dataset, batch_sampler=val_sampler, num_workers=4, pin_memory=True)
+    val_data_loader = DataLoader(dataset=val_dataset, batch_sampler=val_sampler, num_workers=8, pin_memory=True)
 
     """ TODO 1.a """
     " Make your own model for Few-shot Classification in 'model.py' file."
 
     # model setting
     model = FewShotModel()
-    print(model)
-
     """ TODO 1.a END """
 
     # pretrained model load
@@ -91,6 +89,7 @@ def train(args):
         model.load_state_dict(state_dict)
 
     model.cuda()
+    model = torch.nn.DataParallel(model, device_ids = range(0,8))
     model.train()
 
     if args.test_mode == 1:
@@ -122,16 +121,14 @@ def train(args):
 
             label_shot, label_query = label[:k], label[k:]
             label_shot = sorted(list(set(label_shot.tolist())))
-            
-            print(label_shot)
-            exit()
+
 
             # convert labels into 0-4 values
             label_query = label_query.tolist()
             labels = []
             for j in range(len(label_query)):
-                label = label_shot.index(label_query[j])
-                labels.append(label)
+                label_idx = label_shot.index(label_query[j])
+                labels.append(label_idx)
             labels = torch.tensor(labels).cuda()
 
             """ TODO 2 ( Same as above TODO 2 ) """
@@ -146,12 +143,42 @@ def train(args):
                 logits : A value to measure accuracy and loss
             """
 
-            embedding_vector = model((data_shot, data_query))
-            pred = classifier(embedding_vector)
-            loss = loss_fn(pred, labels)
-            loss.backward()
-            optimizer.steop()
+            labels_list = labels.tolist()
 
+            # Embedding
+            ebd_shot = model(data_shot)
+            ebd_query = model(data_query)
+            #print(ebd_shot.shape)
+
+            # Prototype
+            proto_shots = []
+            #print(f"DEBUG{set(labels.tolist())}, {len(set(labels.tolist()))}")
+            for i in range(len(set(labels_list))):  # Get prototypes of each class from shot
+                shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
+                proto_shots.append(torch.mean(shots, dim=0))
+                # print(f"DEBUG{i}")
+                # print(label[:k].tolist()[i*args.kshot:(i+1)*args.kshot])
+                # print(shots.shape)
+                # print(proto_shots[-1].shape)
+
+            # Distance metric
+            class_losses = torch.zeros(len(set(labels_list))) # loss for each class
+            predictions = [] # loss for each queries
+            for i in range(len(set(labels_list))):  # Get loss for each class
+                # select embedding vectors of i'th class queries
+                idx_start = labels_list.index(i)
+                cnt = labels_list.count(i)
+                query = ebd_query[idx_start:idx_start+cnt]
+                # print(f"DEBUG query.shape\t{query.shape}\t{labels_list}")
+                # get loss for this class
+                class_loss, preds = loss_fn(query, proto_shots, i)
+#                print(f"DEBUG class_loss\t{class_loss.shape}\t{class_losses.shape}")
+                class_losses[i] = class_loss
+                predictions.extend(preds)
+
+            loss = torch.mean(class_losses)
+
+            logits = torch.tensor(predictions)
 
             """ TODO 2 END """
 
@@ -209,8 +236,42 @@ def train(args):
                             loss : torch scalar tensor which used for updating your model
                             logits : A value to measure accuracy and loss
                         """
+                        labels_list = labels.tolist()
 
-#                        YOUR CODE
+                        # Embedding
+                        ebd_shot = model(data_shot)
+                        ebd_query = model(data_query)
+                        #print(ebd_shot.shape)
+
+                        # Prototype
+                        proto_shots = []
+                        #print(f"DEBUG{set(labels.tolist())}, {len(set(labels.tolist()))}")
+                        for i in range(len(set(labels_list))):  # Get prototypes of each class from shot
+                            shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
+                            proto_shots.append(torch.mean(shots, dim=0))
+                            # print(f"DEBUG{i}")
+                            # print(label[:k].tolist()[i*args.kshot:(i+1)*args.kshot])
+                            # print(shots.shape)
+                            # print(proto_shots[-1].shape)
+
+                        # Distance metric
+                        class_losses = torch.zeros(len(set(labels_list))) # loss for each class
+                        predictions = [] # loss for each queries
+                        for i in range(len(set(labels_list))):  # Get loss for each class
+                            # select embedding vectors of i'th class queries
+                            idx_start = labels_list.index(i)
+                            cnt = labels_list.count(i)
+                            query = ebd_query[idx_start:idx_start+cnt]
+                            # print(f"DEBUG query.shape\t{query.shape}\t{labels_list}")
+                            # get loss for this class
+                            class_loss, preds = loss_fn(query, proto_shots, i)
+            #                print(f"DEBUG class_loss\t{class_loss.shape}\t{class_losses.shape}")
+                            class_losses[i] = class_loss
+                            predictions.extend(preds)
+
+                        loss = torch.mean(class_losses)
+
+                        logits = torch.tensor(predictions)
 
                         """ TODO 2 END """
 
@@ -257,7 +318,7 @@ if __name__ == '__main__':
     if not os.path.isdir('checkpoints'):
         os.mkdir('checkpoints')
 
-    torch.cuda.set_device(args.gpus)
+    #torch.cuda.set_device(args.gpus)
 
     train(args)
 

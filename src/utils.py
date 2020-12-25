@@ -1,5 +1,41 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import csv
+
+def get_prototype(ebd, label):
+    pass
+
+def distance_metric(x, targets):
+    distances = torch.zeros(len(targets))
+    for i, target in enumerate(targets):
+        #distance = square_euclidean_metric(x, target)
+        distances[i] = torch.norm(x-target, 'fro')
+    return distances
+
+
+def loss_fn(queries, proto_shots, label):
+    losses = torch.zeros(queries.size(0))
+    predictions = []
+    for i, query in enumerate(queries):
+        # For each query, get distance to all classes
+        distances = distance_metric(query, proto_shots)
+        
+        #print("DEBUG distance.shape\t", distances.shape)
+        # Get softmax loss for each query
+        loss = torch.nn.functional.softmax(distances, dim=0)
+        #print("DEBUG loss.shape\t", loss.shape)
+        losses[i] = loss[label]
+
+        # Get prediction from softmax value
+        pred = torch.argmax(loss)
+        predictions.append(pred)
+
+    # Aggregate losses of all queries
+    losses = -1*torch.log(torch.mean(losses))
+    #losses = torch.mean(losses)
+    return losses, predictions
+    
 
 def square_euclidean_metric(a, b):
     """ Measure the euclidean distance (optional)
@@ -34,12 +70,13 @@ def count_acc(logits, label):
     """
 
     # when logits is distance
-    pred = torch.argmin(logits, dim=1)
+    #pred = torch.argmin(logits, dim=1)
 
     # when logits is prob
     #pred = torch.argmax(logits, dim=1)
-
-    return (pred == label).type(torch.cuda.FloatTensor).mean().item()
+    pred = logits.detach().cpu()
+    label_ = label.detach().cpu()
+    return (pred == label_).type(torch.cuda.FloatTensor).mean().item()
 
 
 class Averager():
