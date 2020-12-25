@@ -2,6 +2,7 @@ import os
 import argparse
 import torch
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 
 from src.dataset import CUB as Dataset
 from src.sampler import Sampler
@@ -100,7 +101,7 @@ def train(args):
     " Set an optimizer or scheduler for Few-shot classification (optional) "
 
     # Default optimizer setting
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
     """ TODO 1.b (optional) END """
 
@@ -143,17 +144,13 @@ def train(args):
                 logits : A value to measure accuracy and loss
             """
 
-            pdb.set_trace()
-
             labels_list = labels.tolist()
 
             # Embedding
-            print(data_shot.shape, data_query.shape)
             data = torch.cat([data_shot, data_query], dim=0)
-            #ebd_shot = model(data_shot)
-            #ebd_query = model(data_query)
             output = model(data)
             ebd_shot, ebd_query = output[:k], output[k:]
+            #print(output.shape)
 
             # Prototype
             proto_shots = torch.zeros([len(set(labels_list)), ebd_shot.size(1), 1]).cuda()
@@ -161,19 +158,19 @@ def train(args):
                 shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
                 proto_shots[i] = torch.mean(shots, dim=0)
 
-            pdb.set_trace()
-
+            # Distance
             ebd_query = ebd_query.squeeze().unsqueeze(1)
-            ebd_shot = ebd_shot.squeeze().expand(ebd_query.size(0),-1,-1)
+            proto_shots = proto_shots.squeeze().expand(ebd_query.size(0),-1,-1)
 
-            distance = -torch.norm(ebd_query-ebd_shot, 'fro', dim=-1).squeeze()
-            distance = -torch.nn.functions.log_softmax(distance, dim = -1)
+            distance = torch.norm(ebd_query-proto_shots, 'fro', dim=-1).squeeze()
+            #distance = square_euclidean_metric(ebd_query, proto_shots)
+            distance = -F.log_softmax(-distance, dim=-1)
 
+            # Loss and prediction
             predictions = torch.argmax(distance, dim=1)
 
             loss = distance[:,labels]
-            loss = torch.mean(class_losses)
-            #loss = torch.nn.CrossEntropyLoss()(predictions, labels)
+            loss = torch.mean(loss)
             logits = predictions
 
             """ TODO 2 END """
