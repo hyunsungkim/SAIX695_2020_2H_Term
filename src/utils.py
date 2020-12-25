@@ -5,18 +5,21 @@ import csv
 
 
 def loss_fn(queries, proto_shots, label):
-
     queries = queries.squeeze().unsqueeze(1)
     proto_shots = proto_shots.squeeze().expand(queries.size(0),-1,-1)
 
     distance = queries-proto_shots
+
     distance = torch.norm(distance, 'fro', dim=-1).squeeze()
+    distance = -distance
 
     loss = torch.nn.functional.softmax(distance, dim=-1)
-    predictions = torch.argmax(loss, dim=1)
+ #   print(loss)
+    predictions = torch.argmin(loss, dim=1)
 
     losses = loss[:,label]
     losses = -1*torch.log(torch.mean(losses))
+    #losses = torch.mean(losses)
 
     return losses, predictions
 
@@ -60,6 +63,8 @@ def count_acc(logits, label):
     #pred = torch.argmax(logits, dim=1)
     pred = logits.detach().cpu()
     label_ = label.detach().cpu()
+    # print(pred)
+    # print(label)
     return (pred == label_).type(torch.cuda.FloatTensor).mean().item()
 
 

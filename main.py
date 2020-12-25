@@ -14,7 +14,7 @@ from src.test_dataset import CUB as Test_Dataset
 from src.test_sampler import Test_Sampler
 " User input value "
 TOTAL = 10000  # total step of training
-PRINT_FREQ = 10  # frequency of print loss and accuracy at training step
+PRINT_FREQ = 1  # frequency of print loss and accuracy at training step
 VAL_FREQ = 100  # frequency of model eval on validation dataset
 SAVE_FREQ = 100  # frequency of saving model
 TEST_SIZE = 200  # fixed
@@ -99,7 +99,7 @@ def train(args):
     " Set an optimizer or scheduler for Few-shot classification (optional) "
 
     # Default optimizer setting
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
 
     """ TODO 1.b (optional) END """
 
@@ -108,7 +108,7 @@ def train(args):
 
     # training start
     print('train start')
-    for i in range(TOTAL):
+    for epoch in range(TOTAL):
         for episode in data_loader:
             optimizer.zero_grad()
 
@@ -158,22 +158,22 @@ def train(args):
 
             # Distance metric
             class_losses = torch.zeros(len(set(labels_list))) # loss for each class
-            predictions = [] # loss for each queries
+            predictions = torch.zeros(len(ebd_query)) # loss for each queries
             for i in range(len(set(labels_list))):  # Get loss for each class
                 # select embedding vectors of i'th class queries
                 idx_start = labels_list.index(i)
                 cnt = labels_list.count(i)
                 query = ebd_query[idx_start:idx_start+cnt]
-                # print(f"DEBUG query.shape\t{query.shape}\t{labels_list}")
-                # get loss for this class
+
                 class_loss, preds = loss_fn(query, proto_shots, i)
-#                print(f"DEBUG class_loss\t{class_loss.shape}\t{class_losses.shape}")
+
                 class_losses[i] = class_loss
-                predictions.extend(preds)
+                predictions[idx_start:idx_start+cnt] = preds
 
+            #print(class_losses.tolist())
             loss = torch.mean(class_losses)
-
-            logits = torch.tensor(predictions)
+            #loss = torch.nn.CrossEntropyLoss()(predictions, labels)
+            logits = predictions
 
             """ TODO 2 END """
 
@@ -187,8 +187,8 @@ def train(args):
 
             proto = None; logits = None; loss = None
 
-        if (i+1) % PRINT_FREQ == 0:
-            print('train {}, loss={:.4f} acc={:.4f}'.format(i+1, tl.item(), ta.item()))
+        if (epoch+1) % PRINT_FREQ == 0:
+            print('train {}, loss={:.4f} acc={:.4f}'.format(epoch+1, tl.item(), ta.item()))
 
             # initialize loss and accuracy mean
             tl = None
@@ -197,7 +197,7 @@ def train(args):
             ta = Averager()
 
         # validation start
-        if (i+1) % VAL_FREQ == 0:
+        if (epoch+1) % VAL_FREQ == 0:
             print('validation start')
             model.eval()
             with torch.no_grad():
@@ -231,23 +231,19 @@ def train(args):
                             loss : torch scalar tensor which used for updating your model
                             logits : A value to measure accuracy and loss
                         """
+                        
                         labels_list = labels.tolist()
 
                         # Embedding
                         ebd_shot = model(data_shot)
                         ebd_query = model(data_query)
-                        #print(ebd_shot.shape)
 
                         # Prototype
-                        proto_shots = []
-                        #print(f"DEBUG{set(labels.tolist())}, {len(set(labels.tolist()))}")
+                        proto_shots = torch.zeros([len(set(labels_list)), ebd_shot.size(1), 1]).cuda()
+
                         for i in range(len(set(labels_list))):  # Get prototypes of each class from shot
                             shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
-                            proto_shots.append(torch.mean(shots, dim=0))
-                            # print(f"DEBUG{i}")
-                            # print(label[:k].tolist()[i*args.kshot:(i+1)*args.kshot])
-                            # print(shots.shape)
-                            # print(proto_shots[-1].shape)
+                            proto_shots[i] = torch.mean(shots, dim=0)
 
                         # Distance metric
                         class_losses = torch.zeros(len(set(labels_list))) # loss for each class
@@ -265,7 +261,6 @@ def train(args):
                             predictions.extend(preds)
 
                         loss = torch.mean(class_losses)
-
                         logits = torch.tensor(predictions)
 
                         """ TODO 2 END """
@@ -287,10 +282,10 @@ def train(args):
                 va = Averager()
             model.train()
 
-        if (i+1) % SAVE_FREQ == 0:
-            PATH = 'checkpoints/%d_%s.pth' % (i + 1, args.name)
+        if (epoch+1) % SAVE_FREQ == 0:
+            PATH = 'checkpoints/%d_%s.pth' % (epoch + 1, args.name)
             torch.save(model.state_dict(), PATH)
-            print('model saved, iteration : %d' % i)
+            print('model saved, iteration : %d' % epoch)
 
 
 if __name__ == '__main__':
