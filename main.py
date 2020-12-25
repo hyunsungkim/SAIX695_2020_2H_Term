@@ -101,7 +101,7 @@ def train(args):
     " Set an optimizer or scheduler for Few-shot classification (optional) "
 
     # Default optimizer setting
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     """ TODO 1.b (optional) END """
 
@@ -300,6 +300,7 @@ if __name__ == '__main__':
     parser.add_argument('--ntest', default=100, type=int, help='number of tests')
     parser.add_argument('--gpus', type=int, nargs='+', default=1)
     parser.add_argument('--test_mode', type=int, default=0, help="if you want to test the model, change the value to 1")
+    parser.add_argument('--lr', type=float, default=0.001, help="learning_rate")
 
     args = parser.parse_args()
 
