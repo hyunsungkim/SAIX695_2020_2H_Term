@@ -9,7 +9,7 @@ from src.sampler import Sampler
 from src.train_sampler import Train_Sampler
 from src.utils import count_acc, Averager, csv_write, square_euclidean_metric
 from src.utils import step
-from model import FewShotModel 
+from model import FewShotModel, AlexNet
 import pdb
 
 from src.test_dataset import CUB as Test_Dataset
@@ -83,6 +83,7 @@ def train(args):
 
     # model setting
     model = FewShotModel()
+    #model = AlexNet()
     """ TODO 1.a END """
 
     # pretrained model load
@@ -248,7 +249,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    torch.manual_seed(20202457)
+    torch.manual_seed(123)
     # torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
 

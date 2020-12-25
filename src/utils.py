@@ -7,26 +7,29 @@ def step(model, data_shot, data_query, labels, args):
     k = args.nway * args.kshot
 
     labels_list = labels.tolist()
+    labels_num = len(set(labels_list))
 
     # Embedding
     data = torch.cat([data_shot, data_query], dim=0)
     output = model(data)
     ebd_shot, ebd_query = output[:k], output[k:]
-    #print(output.shape)
+    print(output.shape)
 
     # Prototype
-    proto_shots = torch.zeros([len(set(labels_list)), ebd_shot.size(1), 1]).cuda()
-    for i in range(len(set(labels_list))):  # Get prototypes of each class from shot
+    proto_shots = torch.zeros([labels_num, ebd_shot.size(1)]).cuda()
+    for i in range(labels_num):  # Get prototypes of each class from shot
         shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
         proto_shots[i] = torch.mean(shots, dim=0)
 
     # Distance
-    ebd_query = ebd_query.squeeze().unsqueeze(1)
-    proto_shots = proto_shots.squeeze().expand(ebd_query.size(0),-1,-1)
+    #ebd_query = ebd_query.squeeze().unsqueeze(1)
+    #proto_shots = proto_shots.squeeze().expand(ebd_query.size(0),-1,-1)
+    #distance = torch.sum(torch.square(ebd_query-proto_shots), dim=-1).squeeze()
+    #distance = torch.norm(distance, 'fro', dim=-1).squeeze()
+    print(ebd_query.shape, proto_shots.shape)
+    distance = square_euclidean_metric(ebd_query, proto_shots)
 
-    distance = torch.sum(torch.square(ebd_query-proto_shots), dim=-1).squeeze()
-#            distance = torch.norm(ebd_query-proto_shots, 'fro', dim=-1).squeeze()
-    #distance = square_euclidean_metric(ebd_query, proto_shots)
+    logits = distance.tolist()
     distance = -F.log_softmax(-distance, dim=-1)
 
     # Loss and prediction
