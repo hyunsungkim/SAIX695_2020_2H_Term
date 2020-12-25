@@ -5,7 +5,7 @@ import csv
 
 def step(model, data_shot, data_query, labels, args):
     k = args.nway * args.kshot
-    
+
     labels_list = labels.tolist()
 
     # Embedding
@@ -35,7 +35,9 @@ def step(model, data_shot, data_query, labels, args):
     loss = distance[:,labels]
     loss = torch.mean(loss)
 
-    return loss, predictions
+    logits = distance
+
+    return loss, logits
 
 
 def square_euclidean_metric(a, b):
@@ -74,12 +76,11 @@ def count_acc(logits, label):
     #pred = torch.argmin(logits, dim=1)
 
     # when logits is prob
-    #pred = torch.argmax(logits, dim=1)
-    pred = logits.detach().cpu()
-    label_ = label.detach().cpu()
+    pred = torch.argmax(logits, dim=1)
+
     # print(pred)
     # print(label)
-    return (pred == label_).type(torch.cuda.FloatTensor).mean().item()
+    return (pred == label).type(torch.cuda.FloatTensor).mean().item()
 
 
 class Averager():

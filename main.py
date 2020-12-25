@@ -248,6 +248,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    torch.manual_seed(20202457)
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+
     if not os.path.isdir('checkpoints'):
         os.mkdir('checkpoints')
 
