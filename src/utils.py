@@ -8,6 +8,7 @@ class Scheduler:
     def __init__(self, optimizer, name=None):
         self.name = name
         self.name = 'ExponentialLR'
+        self.name = None
         self.optimizer = optimizer
         if(self.name == 'ExponentialLR'):
             self.scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
