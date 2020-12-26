@@ -60,9 +60,9 @@ def step(model, data_shot, data_query, labels, args):
     label_distance = distance[torch.arange(distance.size(0)), labels]
     rival_distance = distance[torch.arange(distance.size(0)), rivals]
 
-    print(f"Labels\n{labels}")
-    print(f"Distance\n{distance}")    
-    print(f"Rivals\n{rival_distance}")    
+    # print(f"Labels\n{labels}")
+    # print(f"Distance\n{distance}")    
+    # print(f"Rivals\n{rival_distance}")    
 
     triplet_loss_margin = 0.1
     loss = torch.clamp(label_distance-rival_distance+triplet_loss_margin, min=0)
