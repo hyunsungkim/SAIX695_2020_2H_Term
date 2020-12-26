@@ -8,6 +8,7 @@ from src.sampler import Sampler
 from src.train_sampler import Train_Sampler
 from src.utils import count_acc, Averager, csv_write, square_euclidean_metric
 from src.utils import step, set_model, Scheduler
+from src.utils import step_test
 from model import FewShotModel
 
 from src.test_dataset import CUB as Test_Dataset
@@ -53,6 +54,7 @@ def Test_phase(model, args, k):
                 
             pred is torch.tensor with size [20] and the each component value is zero to four
             """
+            pred = step_test(model, data_shot, data_query, args)
 
             # save your prediction as StudentID_Name.csv file
             csv.add(pred)
@@ -87,7 +89,12 @@ def train(args):
     # pretrained model load
     if args.restore_ckpt is not None:
         state_dict = torch.load(args.restore_ckpt)
-        model.load_state_dict(state_dict)
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, value in state_dict.items():
+            name = key[7:] # remove `module.`
+            new_state_dict[name] = value
+        model.load_state_dict(new_state_dict)
 
     model.cuda()
     model = torch.nn.DataParallel(model, device_ids = range(0,8))
@@ -228,7 +235,7 @@ def train(args):
             model.train()
 
         if (i+1) % SAVE_FREQ == 0:
-            PATH = 'checkpoints/%d_%s.pth' % (i + 1, args.name)
+            PATH = 'checkpoints/%s_%d.pth' % (args.name, i+1)
             torch.save(model.state_dict(), PATH)
             print('model saved, iteration : %d' % i)
 

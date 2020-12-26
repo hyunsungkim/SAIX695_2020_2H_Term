@@ -8,6 +8,7 @@ class Scheduler:
     def __init__(self, optimizer, name=None):
         self.name = name
         self.name = 'ExponentialLR'
+        self.name = None
         self.optimizer = optimizer
         if(self.name == 'ExponentialLR'):
             self.scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
@@ -145,3 +146,29 @@ class csv_write():
 
     def close(self):
         self.f.close()
+
+
+def step_test(model, data_shot, data_query, args):
+    k = args.nway * args.kshot
+
+    labels_num = args.nway
+
+    # Embedding
+    data = torch.cat([data_shot, data_query], dim=0)
+    output = model(data)
+    ebd_shot, ebd_query = output[:k], output[k:]
+
+    # Prototype
+    proto_shots = torch.zeros([labels_num, ebd_shot.size(1)]).cuda()
+    for i in range(labels_num):  # Get prototypes of each class from shot
+        shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
+        proto_shots[i] = torch.mean(shots, dim=0)
+
+    # Distance
+    distance = square_euclidean_metric(ebd_query, proto_shots).squeeze()
+    distance = -F.log_softmax(-distance, dim=-1)
+
+    # Loss and prediction
+    predictions = torch.argmin(distance, dim=1)
+
+    return predictions.squeeze()
