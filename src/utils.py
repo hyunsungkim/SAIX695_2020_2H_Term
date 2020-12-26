@@ -2,6 +2,31 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import csv
+import model as models
+
+class Scheduler:
+    def __init__(self, optimizer, name=None):
+        self.name = name
+        self.name = 'ExponentialLR'
+        self.optimizer = optimizer
+        if(self.name == 'ExponentialLR'):
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+        self.milestones = range(100,10000,100)
+    def step(self, epoch):
+        if(self.name == None):
+            return None
+        elif(epoch in self.milestones):
+            self.scheduler.step()
+            for param_group in self.optimizer.state_dict()['param_groups']:
+                current_lr = param_group['lr']
+                print(f"learning_rate {current_lr}")
+                return current_lr
+        return None
+
+def set_model():
+    model = models.AlexNet()
+    return model
+
 
 def step(model, data_shot, data_query, labels, args):
     k = args.nway * args.kshot

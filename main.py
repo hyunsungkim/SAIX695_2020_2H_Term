@@ -2,15 +2,13 @@ import os
 import argparse
 import torch
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
 
 from src.dataset import CUB as Dataset
 from src.sampler import Sampler
 from src.train_sampler import Train_Sampler
 from src.utils import count_acc, Averager, csv_write, square_euclidean_metric
-from src.utils import step
-from model import FewShotModel, AlexNet
-import pdb
+from src.utils import step, set_model, Scheduler
+from model import FewShotModel
 
 from src.test_dataset import CUB as Test_Dataset
 from src.test_sampler import Test_Sampler
@@ -82,8 +80,8 @@ def train(args):
     " Make your own model for Few-shot Classification in 'model.py' file."
 
     # model setting
-    model = FewShotModel()
-    #model = AlexNet()
+    model = set_model()
+
     """ TODO 1.a END """
 
     # pretrained model load
@@ -103,6 +101,7 @@ def train(args):
 
     # Default optimizer setting
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = Scheduler(optimizer)
 
     """ TODO 1.b (optional) END """
 
@@ -111,7 +110,7 @@ def train(args):
 
     # training start
     print('train start')
-    for epoch in range(TOTAL):
+    for i in range(TOTAL):
         for episode in data_loader:
             optimizer.zero_grad()
 
@@ -147,6 +146,9 @@ def train(args):
 
             loss, logits = step(model, data_shot, data_query, labels, args)
 
+            if(scheduler.name is not None):
+                scheduler.step(i)
+
             """ TODO 2 END """
 
             acc = count_acc(logits, labels)
@@ -159,8 +161,8 @@ def train(args):
 
             proto = None; logits = None; loss = None
 
-        if (epoch+1) % PRINT_FREQ == 0:
-            print('train {}, loss={:.4f} acc={:.4f}'.format(epoch+1, tl.item(), ta.item()))
+        if (i+1) % PRINT_FREQ == 0:
+            print('train {}, loss={:.4f} acc={:.4f}'.format(i+1, tl.item(), ta.item()))
 
             # initialize loss and accuracy mean
             tl = None
@@ -169,7 +171,7 @@ def train(args):
             ta = Averager()
 
         # validation start
-        if (epoch+1) % VAL_FREQ == 0:
+        if (i+1) % VAL_FREQ == 0:
             print('validation start')
             model.eval()
             with torch.no_grad():
@@ -225,10 +227,10 @@ def train(args):
                 va = Averager()
             model.train()
 
-        if (epoch+1) % SAVE_FREQ == 0:
-            PATH = 'checkpoints/%d_%s.pth' % (epoch + 1, args.name)
+        if (i+1) % SAVE_FREQ == 0:
+            PATH = 'checkpoints/%d_%s.pth' % (i + 1, args.name)
             torch.save(model.state_dict(), PATH)
-            print('model saved, iteration : %d' % epoch)
+            print('model saved, iteration : %d' % i)
 
 
 if __name__ == '__main__':
