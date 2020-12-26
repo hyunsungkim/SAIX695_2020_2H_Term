@@ -59,9 +59,10 @@ class AlexNet(nn.Module):
         return x
 
 
+
 class RNModel(nn.Module):
     def __init__(self, x_dim=3, hid_dim=64, z_dim=64):
-        super().__init__()
+        super(RNModel, self).__init__()
 
         # embedding layers
         self.f = nn.Sequential(
@@ -73,54 +74,26 @@ class RNModel(nn.Module):
         )
 
         self.g = nn.Sequential(
-            conv_block(x_dim, hid_dim),
+            conv_block(z_dim*2, hid_dim),
             nn.MaxPool2d(2),
             conv_block(hid_dim, hid_dim),
             nn.MaxPool2d(2),
-            conv_block(hid_dim, z_dim),
+            conv_block(hid_dim, hid_dim),
         )
 
         self.classifier = nn.Sequential(
-            nn.AdaptiveMaxPool2d(z_dim),
+            nn.Linear(64*12*12,1024),
             nn.ReLU(),
-            nn.Linear(64,8),
+            nn.Linear(1024,128),
             nn.ReLU(),
-            nn.Linear(8,1),
-            nn.Sigmoid()
+            nn.Linear(128,1)
+       #     nn.Sigmoid()
         )
 
-    def forward(self, s, q, args):
-        print(f"s.shape, q.shape {s.shape}, {q.shape}")
-
-        x = torch.cat([s,q], dim=0)
-        x = self.f(x)
-
-        print(f"x.shape {x.shape}")
-
-        n_way = args.nway # num of class
-        n_shot = int(s.shape[0]//n_way) # num of support image for each class
-        n_query = int(q.shape[0]//n_way) # num of query image for each class
-
-        q = x[s.shape[0]:]
-        s = x[:s.shape[0]]
-
-        proto_shots = torch.mean(s[:n_shot], dim=1)
-        for i in range(args.nways):
-            shots = s[i*n_shot:(i+1)*n_shot]
-            proto_shots = torch.cat([proto_shots, torch.mean(shots, dim=1)])
-
-        n, m = proto_shots.shape[0], q.shape[0]
-
-        proto_shots = proto_shots.unsqueeze(1).expand(n, m, -1)
-        q = q.unsqueeze(0).expand(n, m, -1)
-
-        proto_shots = proto_shots.expand(n, m,)
-        print(proto_shots.shape, q.shape)
-        proto_shots = torch.mean(proto_shots, dim=1)
-        print(proto_shots.shape, q.shape)
-        c = 0
-
-        re = self.g(c)
-        similarity = self.classifier(re)
-
+    def forward(self, x, args, phase):
+        if(phase=='encode'):
+            x = self.f(x)
+        elif(phase=='decode'):
+            x = self.g(x).view(x.size(0),-1)
+            x = self.classifier(x)
         return x

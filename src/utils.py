@@ -33,36 +33,44 @@ def step(model, data_shot, data_query, labels, args):
 
     labels_list = labels.tolist()
     labels_num = len(set(labels_list))
+  #  print(labels_list)
 
     # Embedding
-    #data = torch.cat([data_shot, data_query], dim=0)
-    output = model(data_shot, data_query, args)
+    data = torch.cat([data_shot, data_query], dim=0)
+    output = model(data, args, phase='encode')
     ebd_shot, ebd_query = output[:k], output[k:]
 
     # Prototype
-    proto_shots = torch.zeros([labels_num, ebd_shot.size(1)]).cuda()
+    proto_shots = torch.zeros([args.nway, ebd_shot.size(1), ebd_shot.size(2), ebd_shot.size(3)]).cuda()
     for i in range(labels_num):  # Get prototypes of each class from shot
         shots = ebd_shot[i*args.kshot:(i+1)*args.kshot]
         proto_shots[i] = torch.mean(shots, dim=0)
 
-    # Distance
-    distance = square_euclidean_metric(ebd_query, proto_shots).squeeze()
-    logits = distance.tolist()
-    distance = -F.log_softmax(-distance, dim=-1)
+    input = torch.zeros([args.query*args.nway, proto_shots.shape[1]+ebd_query.shape[1], ebd_query.shape[2], ebd_query.shape[3]])
+   # print(f"input.shape {input.shape}")
+    for i in range(args.query):
+        for j in range(labels_num):
+            input[i*labels_num+j] = torch.cat([proto_shots[j], ebd_shot[i]], dim=0)
 
-    # Loss and prediction
-    predictions = torch.argmin(distance, dim=1)
+    similarity = model(input, args, phase='decode').view(-1,args.nway)
+    print(nn.Softmax(dim=1)(similarity))
+   # similarity = nn.Softmax(dim=1)(similarity)
+  #  print(f"similarity.shape {similarity.shape}, {similarity}")
 
-    loss = distance[torch.arange(distance.size(0)), labels]
+    pred = torch.argmax(similarity, dim=1)
+    #print(pred)
+    #loss = torch.nn.CrossEntropyLoss()(similarity, labels)
+    loss = similarity[torch.arange(similarity.shape[0]), labels]
+    loss = torch.mean(loss)
+    print(loss)
+    print("\n\n")
     
     # print(f"Distance\n{distance}")    
     # print(f"Labels\n{labels}")
     # print(loss)
     # print(f"Prediction\n{predictions}\n\n")
     # print("\n\n")
-
-    loss = torch.mean(loss)
-    logits = distance
+    logits = similarity
 
     return loss, logits
 
@@ -100,10 +108,10 @@ def count_acc(logits, label):
     """
 
     # when logits is distance
-    pred = torch.argmin(logits, dim=1)
+    # pred = torch.argmin(logits, dim=1)
 
     # when logits is prob
-    #pred = torch.argmax(logits, dim=1)
+    pred = torch.argmax(logits, dim=1)
 
     # print(pred)
     # print(label)
