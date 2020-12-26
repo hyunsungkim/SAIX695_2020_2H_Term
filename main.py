@@ -87,7 +87,12 @@ def train(args):
     # pretrained model load
     if args.restore_ckpt is not None:
         state_dict = torch.load(args.restore_ckpt)
-        model.load_state_dict(state_dict)
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, value in state_dict.items():
+            name = key[7:] # remove `module.`
+            new_state_dict[name] = value
+        model.load_state_dict(new_state_dict)
 
     model.cuda()
     model = torch.nn.DataParallel(model, device_ids = range(0,8))
