@@ -48,14 +48,25 @@ def step(model, data_shot, data_query, labels, args):
     # Distance
     distance = square_euclidean_metric(ebd_query, proto_shots).squeeze()
     logits = distance.tolist()
-    distance = -F.log_softmax(-distance, dim=-1)
+    distance = -F.log_softmax(-distance, dim=-1) # [args.query, args.nway]
 
     # Loss and prediction
     predictions = torch.argmin(distance, dim=1)
 
-    loss = distance[torch.arange(distance.size(0)), labels]
-    
-    # print(f"Distance\n{distance}")    
+    label_mask = torch.zeros(distance.shape).cuda()
+    label_mask[torch.arange(distance.size(0)), labels] = 10e+5
+    rivals = torch.argmin(distance+label_mask, dim=1)
+
+    label_distance = distance[torch.arange(distance.size(0)), labels]
+    rival_distance = distance[torch.arange(distance.size(0)), rivals]
+
+    print(f"Labels\n{labels}")
+    print(f"Distance\n{distance}")    
+    print(f"Rivals\n{rival_distance}")    
+
+    triplet_loss_margin = 0.1
+    loss = torch.clamp(label_distance-rival_distance+triplet_loss_margin, min=0)
+
     # print(f"Labels\n{labels}")
     # print(loss)
     # print(f"Prediction\n{predictions}\n\n")
