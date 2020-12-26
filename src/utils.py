@@ -24,7 +24,7 @@ class Scheduler:
         return None
 
 def set_model():
-    model = models.AlexNet()
+    model = models.RNModel()
     return model
 
 
@@ -35,8 +35,8 @@ def step(model, data_shot, data_query, labels, args):
     labels_num = len(set(labels_list))
 
     # Embedding
-    data = torch.cat([data_shot, data_query], dim=0)
-    output = model(data)
+    #data = torch.cat([data_shot, data_query], dim=0)
+    output = model(data_shot, data_query, args)
     ebd_shot, ebd_query = output[:k], output[k:]
 
     # Prototype

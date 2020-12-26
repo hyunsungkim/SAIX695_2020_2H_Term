@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 
 """ Optional conv block """
@@ -56,3 +57,57 @@ class AlexNet(nn.Module):
     def forward(self, x):
         x = self.features(x).view([x.shape[0],-1])
         return x
+
+
+class RNModel(nn.Module):
+    def __init__(self, x_dim=3, hid_dim=64, z_dim=64):
+        super().__init__()
+
+        # embedding layers
+        self.f = nn.Sequential(
+            conv_block(x_dim, hid_dim),
+            nn.MaxPool2d(2),
+            conv_block(hid_dim, hid_dim),
+            nn.MaxPool2d(2),
+            conv_block(hid_dim, hid_dim),
+        )
+
+        self.g = nn.Sequential(
+            conv_block(x_dim, hid_dim),
+            nn.MaxPool2d(2),
+            conv_block(hid_dim, hid_dim),
+            nn.MaxPool2d(2),
+            conv_block(hid_dim, z_dim),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.AdaptiveMaxPool2d(z_dim),
+            nn.ReLU(),
+            nn.Linear(64,8),
+            nn.ReLU(),
+            nn.Linear(8,1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, s, q, args):
+        print(f"s.shape, q.shape {s.shape}, {q.shape}")
+        x = torch.cat([s,q], dim=0)
+        x = self.f(x)
+
+        print(f"x.shape {x.shape}")
+
+        q = x[s.shape[0]:]
+        s = x[:s.shape[0]]
+
+        proto_shots = torch.mean(x[:args.kshot], dim=1)
+        for i in range(args.nways):
+            proto_shots = torch.cat([proto_shots, torch.mean(x[i*args.kshot:(i+1)*args.kshot], dim=1)])
+        print(proto_shots.shape, q.shape)
+        proto_shots = torch.mean(proto_shots, dim=1)
+        print(proto_shots.shape, q.shape)
+        c = 0
+
+        re = self.g(c)
+        similarity = self.classifier(re)
+
+        return similarity
