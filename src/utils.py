@@ -55,7 +55,7 @@ def step(model, data_shot, data_query, labels, args):
 
     similarity = model(input, args, phase='decode').view(-1,args.nway)
    # print(nn.Softmax(dim=1)(similarity))
-    #similarity = nn.Softmax(dim=1)(similarity)
+   #similarity = nn.Softmax(dim=1)(similarity)
   #  print(f"similarity.shape {similarity.shape}, {similarity}")
 
     pred = torch.argmax(similarity, dim=1)
