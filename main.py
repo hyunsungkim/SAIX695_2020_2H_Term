@@ -81,6 +81,7 @@ def train(args):
 
     # model setting
     model = set_model()
+    print(model)
 
     """ TODO 1.a END """
 
