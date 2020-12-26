@@ -78,7 +78,7 @@ class RNModel(nn.Module):
             nn.MaxPool2d(2),
             conv_block(hid_dim, hid_dim),
             nn.MaxPool2d(2),
-            conv_block(hid_dim, hid_dim),
+         #   conv_block(hid_dim, hid_dim),
         )
 
         self.classifier = nn.Sequential(

@@ -53,17 +53,17 @@ def step(model, data_shot, data_query, labels, args):
             input[i*labels_num+j] = torch.cat([proto_shots[j], ebd_shot[i]], dim=0)
 
     similarity = model(input, args, phase='decode').view(-1,args.nway)
-    print(nn.Softmax(dim=1)(similarity))
-   # similarity = nn.Softmax(dim=1)(similarity)
+   # print(nn.Softmax(dim=1)(similarity))
+    #similarity = nn.Softmax(dim=1)(similarity)
   #  print(f"similarity.shape {similarity.shape}, {similarity}")
 
     pred = torch.argmax(similarity, dim=1)
     #print(pred)
-    #loss = torch.nn.CrossEntropyLoss()(similarity, labels)
-    loss = similarity[torch.arange(similarity.shape[0]), labels]
-    loss = torch.mean(loss)
-    print(loss)
-    print("\n\n")
+    loss = torch.nn.CrossEntropyLoss()(similarity, labels)
+    #loss = similarity[torch.arange(similarity.shape[0]), labels]
+    #print(loss)
+    #loss = torch.mean(loss)
+    #print("\n\n")
     
     # print(f"Distance\n{distance}")    
     # print(f"Labels\n{labels}")
