@@ -13,7 +13,6 @@ def step(model, data_shot, data_query, labels, args):
     data = torch.cat([data_shot, data_query], dim=0)
     output = model(data)
     ebd_shot, ebd_query = output[:k], output[k:]
-    print(output.shape)
 
     # Prototype
     proto_shots = torch.zeros([labels_num, ebd_shot.size(1)]).cuda()
@@ -22,22 +21,22 @@ def step(model, data_shot, data_query, labels, args):
         proto_shots[i] = torch.mean(shots, dim=0)
 
     # Distance
-    #ebd_query = ebd_query.squeeze().unsqueeze(1)
-    #proto_shots = proto_shots.squeeze().expand(ebd_query.size(0),-1,-1)
-    #distance = torch.sum(torch.square(ebd_query-proto_shots), dim=-1).squeeze()
-    #distance = torch.norm(distance, 'fro', dim=-1).squeeze()
-    print(ebd_query.shape, proto_shots.shape)
-    distance = square_euclidean_metric(ebd_query, proto_shots)
-
+    distance = square_euclidean_metric(ebd_query, proto_shots).squeeze()
     logits = distance.tolist()
     distance = -F.log_softmax(-distance, dim=-1)
 
     # Loss and prediction
-    predictions = torch.argmax(distance, dim=1)
+    predictions = torch.argmin(distance, dim=1)
 
-    loss = distance[:,labels]
+    loss = distance[torch.arange(distance.size(0)), labels]
+    
+    # print(f"Distance\n{distance}")    
+    # print(f"Labels\n{labels}")
+    # print(loss)
+    # print(f"Prediction\n{predictions}\n\n")
+    # print("\n\n")
+
     loss = torch.mean(loss)
-
     logits = distance
 
     return loss, logits
@@ -76,10 +75,10 @@ def count_acc(logits, label):
     """
 
     # when logits is distance
-    #pred = torch.argmin(logits, dim=1)
+    pred = torch.argmin(logits, dim=1)
 
     # when logits is prob
-    pred = torch.argmax(logits, dim=1)
+    #pred = torch.argmax(logits, dim=1)
 
     # print(pred)
     # print(label)
