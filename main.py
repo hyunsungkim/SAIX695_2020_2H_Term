@@ -7,7 +7,7 @@ from src.dataset import CUB as Dataset
 from src.sampler import Sampler
 from src.train_sampler import Train_Sampler
 from src.utils import count_acc, Averager, csv_write, square_euclidean_metric
-from src.utils import step, set_model, Scheduler
+from src.utils import step, set_model, Scheduler, step_test
 from model import FewShotModel
 
 from src.test_dataset import CUB as Test_Dataset
@@ -53,6 +53,9 @@ def Test_phase(model, args, k):
                 
             pred is torch.tensor with size [20] and the each component value is zero to four
             """
+
+            logits = step_test(model, data_shot, data_query, args)
+            pred = torch.argmin(logits, dim=1)
 
             # save your prediction as StudentID_Name.csv file
             csv.add(pred)
