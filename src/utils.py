@@ -48,22 +48,22 @@ def step(model, data_shot, data_query, labels, args):
         proto_shots[i] = torch.mean(shots, dim=0)
 
     input = torch.zeros([args.query*args.nway, proto_shots.shape[1]+ebd_query.shape[1], ebd_query.shape[2], ebd_query.shape[3]])
-   # print(f"input.shape {input.shape}")
+    #print(f"input.shape {input.shape}")
     for i in range(args.query):
-        for j in range(labels_num):
-            input[i*labels_num+j] = torch.cat([proto_shots[j], ebd_shot[i]], dim=0)
+        for j in range(args.nway):
+            input[i*labels_num+j] = torch.cat([proto_shots[j], ebd_query[i]], dim=0)
 
     similarity = model(input, args, phase='decode').view(-1,args.nway)
    # print(nn.Softmax(dim=1)(similarity))
-   #similarity = nn.Softmax(dim=1)(similarity)
+    similarity = nn.Softmax(dim=1)(similarity)
   #  print(f"similarity.shape {similarity.shape}, {similarity}")
 
     pred = torch.argmax(similarity, dim=1)
     #print(pred)
-    loss = torch.nn.CrossEntropyLoss()(similarity, labels)
-    #loss = similarity[torch.arange(similarity.shape[0]), labels]
+    #loss = torch.nn.CrossEntropyLoss()(similarity, labels)
+    loss = similarity[torch.arange(similarity.shape[0]), labels]
     #print(loss)
-    #loss = torch.mean(loss)
+    loss = torch.mean(loss)
     #print("\n\n")
     
     # print(f"Distance\n{distance}")    
